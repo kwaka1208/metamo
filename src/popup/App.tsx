@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Activity, AlertCircle, Cpu, HardDrive, Info, X } from 'lucide-react';
+import { Activity, AlertCircle, Cpu, HardDrive, Info, X, Download } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -30,11 +30,13 @@ interface ErrorData {
   stack?: string;
   type: 'error' | 'unhandledrejection' | 'console';
   timestamp: number;
+  memorySnapshot?: string;
 }
 
 interface State {
   performanceHistory: PerformanceData[];
   errors: ErrorData[];
+  logBuffer: string;
 }
 
 interface AppProps {
@@ -42,7 +44,7 @@ interface AppProps {
 }
 
 const App: React.FC<AppProps> = ({ onClose }) => {
-  const [state, setState] = useState<State>({ performanceHistory: [], errors: [] });
+  const [state, setState] = useState<State>({ performanceHistory: [], errors: [], logBuffer: '' });
   const [activeTab, setActiveTab] = useState<'perf' | 'errors'>('perf');
 
   useEffect(() => {
@@ -88,6 +90,10 @@ const App: React.FC<AppProps> = ({ onClose }) => {
   const currentPerf = chartData[chartData.length - 1] || { fps: 0, used: 0 };
 
   const formatMB = (megabytes: number = 0) => `${megabytes} MB`;
+
+  const downloadLog = () => {
+    chrome.runtime.sendMessage({ type: 'DOWNLOAD_LOG' });
+  };
 
   return (
     <div className="flex flex-col h-full bg-slate-50 overflow-hidden w-[400px]">
@@ -177,23 +183,10 @@ const App: React.FC<AppProps> = ({ onClose }) => {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="timestamp" 
-                      hide={true}
-                    />
+                    <XAxis dataKey="timestamp" hide={true} />
                     <YAxis fontSize={10} axisLine={false} tickLine={false} orientation="right" />
-                    <Tooltip 
-                      labelFormatter={(label) => new Date(label).toLocaleTimeString()}
-                    />
-                    <Area 
-                      isAnimationActive={false} // Disable animation for smoother real-time updates
-                      type="monotone" 
-                      dataKey="used" 
-                      stroke="#4f46e5" 
-                      fillOpacity={1} 
-                      fill="url(#colorUsed)" 
-                      strokeWidth={2} 
-                    />
+                    <Tooltip labelFormatter={(label) => new Date(label).toLocaleTimeString()} />
+                    <Area isAnimationActive={false} type="monotone" dataKey="used" stroke="#4f46e5" fillOpacity={1} fill="url(#colorUsed)" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -205,54 +198,64 @@ const App: React.FC<AppProps> = ({ onClose }) => {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="timestamp" 
-                      hide={true}
-                    />
+                    <XAxis dataKey="timestamp" hide={true} />
                     <YAxis domain={[0, 70]} fontSize={10} axisLine={false} tickLine={false} orientation="right" />
-                    <Tooltip 
-                      labelFormatter={(label) => new Date(label).toLocaleTimeString()}
-                    />
-                    <Line 
-                      isAnimationActive={false}
-                      type="monotone" 
-                      dataKey="fps" 
-                      stroke="#10b981" 
-                      strokeWidth={2} 
-                      dot={false} 
-                    />
+                    <Tooltip labelFormatter={(label) => new Date(label).toLocaleTimeString()} />
+                    <Line isAnimationActive={false} type="monotone" dataKey="fps" stroke="#10b981" strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
           </div>
         ) : (
-          <div className="space-y-3">
-            {state.errors.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                <Info size={48} className="mb-4 opacity-20" />
-                <p>エラーは検出されていません</p>
-              </div>
-            ) : (
-              state.errors.slice().reverse().map((error, i) => (
-                <div key={i} className="bg-white p-3 rounded-lg border-l-4 border-red-500 shadow-sm border border-slate-200">
-                  <div className="flex items-start gap-2">
-                    <AlertCircle size={16} className="text-red-500 mt-1 shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-800 break-all">{error.message}</p>
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        {new Date(error.timestamp).toLocaleTimeString()} · {error.type}
-                      </p>
-                      {error.source && (
-                        <p className="text-[10px] text-slate-500 mt-0.5 truncate italic">
-                          {error.source}:{error.lineno}
-                        </p>
-                      )}
+          <div className="space-y-4">
+            {state.errors.length > 0 && (
+              <button
+                onClick={downloadLog}
+                className="w-full flex items-center justify-center gap-2 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+              >
+                <Download size={16} />
+                ログをダウンロード (metamo.log)
+              </button>
+            )}
+
+            <div className="space-y-3">
+              {state.errors.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+                  <Info size={48} className="mb-4 opacity-20" />
+                  <p>エラーは検出されていません</p>
+                </div>
+              ) : (
+                state.errors.slice().reverse().map((error, i) => (
+                  <div key={i} className="bg-white p-3 rounded-lg border-l-4 border-red-500 shadow-sm border border-slate-200">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle size={16} className="text-red-500 mt-1 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-800 break-all">{error.message}</p>
+                        <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1">
+                          <span className="text-[10px] text-slate-400">
+                            {new Date(error.timestamp).toLocaleTimeString()}
+                          </span>
+                          <span className="text-[10px] bg-slate-100 px-1 rounded text-slate-500">
+                            {error.type}
+                          </span>
+                          {error.memorySnapshot && (
+                            <span className="text-[10px] bg-indigo-50 text-indigo-600 px-1 rounded font-medium">
+                              MEM: {error.memorySnapshot}
+                            </span>
+                          )}
+                        </div>
+                        {error.source && (
+                          <p className="text-[10px] text-slate-500 mt-0.5 truncate italic">
+                            {error.source}:{error.lineno}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
         )}
       </main>

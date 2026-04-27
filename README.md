@@ -13,14 +13,13 @@
 
 最も手軽に利用するには、ビルド済みのファイルをダウンロードしてください。
 
-1. [**最新の metamo.zip をダウンロード**](https://github.com/YOUR_USERNAME/YOUR_REPO_NAME/releases/latest/download/metamo.zip)
+1. [**最新の metamo.zip をダウンロード**](https://github.com/kwaka1208/metamo/releases/latest/download/metamo.zip)
 2. ダウンロードした ZIP ファイルを解凍します。
 3. Chrome で `chrome://extensions/` を開きます。
 4. 「デベロッパー モード」をオンにします。
 5. 「パッケージ化されていない拡張機能を読み込む」から、解凍したフォルダを選択します。
-
-> ※ `YOUR_USERNAME` と `YOUR_REPO_NAME` は、ご自身の GitHub のものに置き換えてください。
-
+6. Chrome ツールバー右端のパズルピース（拡張機能）アイコンをクリックし、一覧から **metamo** の横にあるピンアイコンをクリックしてツールバーに固定します。
+ 
 ## 開発者向けインストール（ビルド方法）
 1. Google Chrome を開き、アドレスバーに `chrome://extensions/` を入力して移動します。
 2. 右上の **「デベロッパー モード」** をオンにします。
@@ -30,7 +29,7 @@
 ## 使い方
 
 1. [MetaLife](https://metalife.co.jp/) にアクセスします。
-2. ブラウザのツールバーにある **metamo** のアイコン（波形のアイコン）をクリックします。
+2. ブラウザのツールバーにある **metamo** のアイコン（Mのアイコン）をクリックします。
 3. 画面右側にダッシュボードが表示され、モニタリングが開始されます。
 4. 再度アイコンをクリックするか、ダッシュボード内の「×」ボタンを押すとパネルが閉じ、元の画面幅に戻ります。
 

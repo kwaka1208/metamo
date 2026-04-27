@@ -24,6 +24,7 @@ interface ErrorData {
   stack?: string;
   type: 'error' | 'unhandledrejection' | 'console';
   timestamp: number;
+  memorySnapshot?: string; // Add memory snapshot info
 }
 
 export {};
@@ -64,6 +65,15 @@ function getPerformanceData(): PerformanceData {
 
 function sendError(error: ErrorData) {
   if (!isContextValid()) return;
+  
+  // Attach current memory info
+  const perf = getPerformanceData();
+  if (perf.memory) {
+    const used = Math.round(perf.memory.usedJSHeapSize / 1024 / 1024);
+    const total = Math.round(perf.memory.totalJSHeapSize / 1024 / 1024);
+    error.memorySnapshot = `${used}MB / ${total}MB`;
+  }
+
   chrome.runtime.sendMessage({ type: 'ERROR_OCCURRED', payload: error }).catch(() => {});
 }
 
@@ -155,7 +165,6 @@ function showDashboard() {
   
   container.style.display = 'block';
   
-  // Render App when showing
   root?.render(
     <div className="h-full border-l border-slate-200 overflow-hidden bg-slate-50">
       <App onClose={() => { isVisible = false; hideDashboard(); }} />
@@ -169,7 +178,6 @@ function hideDashboard() {
   if (container) {
     container.style.display = 'none';
   }
-  // Unmount App content when hiding to stop all React activity
   root?.render(null);
 }
 
