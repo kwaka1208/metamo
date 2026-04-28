@@ -33,10 +33,17 @@ interface ErrorData {
   memorySnapshot?: string;
 }
 
+interface SystemMemoryInfo {
+  capacity: number;
+  availableCapacity: number;
+  timestamp: number;
+}
+
 interface State {
   performanceHistory: PerformanceData[];
   errors: ErrorData[];
   logBuffer: string;
+  systemMemoryHistory: SystemMemoryInfo[];
 }
 
 interface AppProps {
@@ -44,7 +51,7 @@ interface AppProps {
 }
 
 const App: React.FC<AppProps> = ({ onClose }) => {
-  const [state, setState] = useState<State>({ performanceHistory: [], errors: [], logBuffer: '' });
+  const [state, setState] = useState<State>({ performanceHistory: [], errors: [], logBuffer: '', systemMemoryHistory: [] });
   const [activeTab, setActiveTab] = useState<'perf' | 'errors'>('perf');
 
   useEffect(() => {
@@ -89,7 +96,22 @@ const App: React.FC<AppProps> = ({ onClose }) => {
 
   const currentPerf = chartData[chartData.length - 1] || { fps: 0, used: 0 };
 
+  const systemMemoryChartData = useMemo(() => {
+    return state.systemMemoryHistory
+      .slice(-60)
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .map((h) => ({
+        timestamp: h.timestamp,
+        used: Math.round((h.capacity - h.availableCapacity) / 1024 / 1024 / 1024 * 10) / 10,
+        available: Math.round(h.availableCapacity / 1024 / 1024 / 1024 * 10) / 10,
+        capacity: Math.round(h.capacity / 1024 / 1024 / 1024 * 10) / 10,
+      }));
+  }, [state.systemMemoryHistory]);
+
+  const currentSystemMem = systemMemoryChartData[systemMemoryChartData.length - 1];
+
   const formatMB = (megabytes: number = 0) => `${megabytes} MB`;
+  const formatGB = (gb: number = 0) => `${gb} GB`;
 
   const downloadLog = () => {
     chrome.runtime.sendMessage({ type: 'DOWNLOAD_LOG' });
@@ -162,13 +184,37 @@ const App: React.FC<AppProps> = ({ onClose }) => {
               <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
                 <div className="flex items-center gap-2 text-slate-500 mb-1">
                   <HardDrive size={14} />
-                  <span className="text-xs uppercase font-semibold tracking-wider">Memory</span>
+                  <span className="text-xs uppercase font-semibold tracking-wider">JS Heap</span>
                 </div>
                 <div className="text-2xl font-bold text-indigo-600">
                   {formatMB(currentPerf.used)}
                 </div>
               </div>
             </div>
+
+            {/* System RAM Stats */}
+            {currentSystemMem && (
+              <div className="bg-white p-3 rounded-xl shadow-sm border border-slate-200">
+                <div className="flex items-center gap-2 text-slate-500 mb-2">
+                  <HardDrive size={14} />
+                  <span className="text-xs uppercase font-semibold tracking-wider">System RAM</span>
+                </div>
+                <div className="flex items-end gap-1">
+                  <span className="text-2xl font-bold text-violet-600">{formatGB(currentSystemMem.used)}</span>
+                  <span className="text-sm text-slate-400 mb-0.5">/ {formatGB(currentSystemMem.capacity)}</span>
+                </div>
+                <div className="mt-2 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-violet-500 rounded-full transition-all"
+                    style={{ width: `${(currentSystemMem.used / currentSystemMem.capacity) * 100}%` }}
+                  />
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-[10px] text-slate-400">使用中: {formatGB(currentSystemMem.used)}</span>
+                  <span className="text-[10px] text-slate-400">空き: {formatGB(currentSystemMem.available)}</span>
+                </div>
+              </div>
+            )}
 
             {/* Charts */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
@@ -191,6 +237,29 @@ const App: React.FC<AppProps> = ({ onClose }) => {
                 </ResponsiveContainer>
               </div>
             </div>
+
+            {systemMemoryChartData.length > 1 && (
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">System RAM Usage (GB)</h3>
+                <div className="h-40 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={systemMemoryChartData}>
+                      <defs>
+                        <linearGradient id="colorRam" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#7c3aed" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="timestamp" hide={true} />
+                      <YAxis domain={[0, (dataMax: number) => Math.ceil(dataMax * 1.2)]} fontSize={10} axisLine={false} tickLine={false} orientation="right" />
+                      <Tooltip labelFormatter={(label) => new Date(label).toLocaleTimeString()} formatter={(value: number) => [`${value} GB`, 'Used']} />
+                      <Area isAnimationActive={false} type="monotone" dataKey="used" stroke="#7c3aed" fillOpacity={1} fill="url(#colorRam)" strokeWidth={2} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
 
             <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
               <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">FPS History</h3>

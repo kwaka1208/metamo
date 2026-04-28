@@ -7,7 +7,7 @@ const manifest = defineManifest({
   name: 'metamo',
   description: 'Monitor browser performance and errors on MetaLife',
   version: '0.1.0',
-  permissions: ['storage', 'scripting', 'activeTab', 'downloads'],
+  permissions: ['storage', 'scripting', 'activeTab', 'downloads', 'system.memory'],
   host_permissions: ['https://*.metalife.co.jp/*'],
   action: {},
   background: {

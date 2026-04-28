@@ -1,13 +1,21 @@
+interface SystemMemoryInfo {
+  capacity: number;
+  availableCapacity: number;
+  timestamp: number;
+}
+
 interface State {
   performanceHistory: any[];
   errors: any[];
-  logBuffer: string; // Accumulate logs as text
+  logBuffer: string;
+  systemMemoryHistory: SystemMemoryInfo[];
 }
 
 const state: State = {
   performanceHistory: [],
   errors: [],
   logBuffer: '',
+  systemMemoryHistory: [],
 };
 
 const MAX_HISTORY = 60; // Keep last 60 seconds
@@ -56,6 +64,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   return true;
 });
+
+const MAX_SYSTEM_MEMORY_HISTORY = 60;
+
+setInterval(() => {
+  chrome.system.memory.getInfo((info) => {
+    state.systemMemoryHistory.push({
+      capacity: info.capacity,
+      availableCapacity: info.availableCapacity,
+      timestamp: Date.now(),
+    });
+    if (state.systemMemoryHistory.length > MAX_SYSTEM_MEMORY_HISTORY) {
+      state.systemMemoryHistory.shift();
+    }
+  });
+}, 1000);
 
 // Toggle dashboard on icon click
 chrome.action.onClicked.addListener((tab) => {
